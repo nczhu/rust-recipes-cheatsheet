@@ -4,7 +4,7 @@
 - [Iterators](#Iterators)
 - [Generics](#Generics)
 - [References](#References)
-- [Channels & Threads](#Channels-&-Threads)
+- [Channels & Threads](#Channels--Threads)
 - [Lifetimes](#Lifetimes)
 - [Closures](#Closures)
 - [Important Traits](#Important-Traits)
