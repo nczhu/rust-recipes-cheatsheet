@@ -1,7 +1,3 @@
-# rust-recipes-cheatsheet
-Cheatsheet of rust recipes from a Rust Programming Recipes course
-
-
 ## Stack vs Heap
 
 - `Stack`: Just the vars that exist only during a function
@@ -78,7 +74,7 @@ Cheatsheet of rust recipes from a Rust Programming Recipes course
 1. Put all error traits & implementations in `error.rs`; Put all functions in `lib.rs`
 2. Create a lib in cargo.toml, point [main.rs](http://main.rs) to library crate  `extern crate lib_name`
 
-    # Allows us to have both a library and an application
+    // Allows us to have both a library and an application
     [lib]     # library name, path, etc
     [[bin]]   # binary target name, path etc. Can have multiple binaries!
 
@@ -128,6 +124,74 @@ Important iterating traits:
     &'a i32     // a reference with an explicit lifetime
     &'a mut i32 // a mutable reference with an explicit lifetime
 
+### Rc: Reference count
+
+*Single thread use only: doesn't impl sync and send*
+
+- `Rc<>`: generic struct, like a garbage collector.  `(reference count, ptr to data)` When you clone an Rc, it just increments the count without copying the data; when it reaches 0 it drops its internal pointer.
+- `Rc::new(s)`: Turns into reference counted obj, & acts as a reference, usable with `.clone()`. S has to be immutable.
+
+    // Make sure to specific the Rc type when a var is going to be reference counted
+    s: Rc<String> // a generic type, acts as a reference to String
+
+### RefCell: a mutable borrow
+
+*Single thread use only: doesn't impl sync and send*
+
+- Internally: guards the borrow checker, makes sure changes are correct.
+- Externally: pretends that it doesn't change. To the borrow checker, it mimics immutable obj.
+- `Rc<<RefCell<s>>` , `Rc::new(RefCell::new(s))`, `let ... = s.borrow_mut()` and lastly `drop(s)` to disable the guard.
+
+## Channels & Threads
+
+- Main fn can terminate before new threads finish!
+
+    use std::thread::*;
+    use std::time::Duration;
+    
+    // Spinning up new thread
+    fn foo() {
+    	// closure for new thread actions
+    	spawn( || { println!("This is the new channel"); });
+    	println!("This is the initial thread");
+    	// allows time for new thread to finish before quitting fn
+    	sleep(Duration::from_millis(1000));
+    }
+
+- When you need to move **primitive** variables to be accessible inside threads, thanks to `Copy`:
+
+    spawn( move || { println!("{}", n); });
+
+- If `Copy` is not implemented for the var (e.g. moving a String btw threads), use:
+    - `arc`: atomic reference count
+    - `mutex`: a guard on mutation, allows mutation when ppl have a `lock` on it
+    - `lock()`: acquires the mutex's lock, returns Result<>.
+
+    use std::sync::{Arc, Mutex};
+    fn foo () {
+    	let m = Arc::new(Mutex::new(String::from("xyz")));
+    
+    	// Create a new arc mutex by copying original arc mutex
+    	// but really clone just increments the rc count
+    	let m2 = m.clone();
+    	// use m2 in new thread
+    	spawn ( ... let mut s = m2.lock().unwrap(); ... )
+    
+    	// use m in original thread
+    	let s = m.lock().unwrap();
+    }
+
+- When to use Mutex in Arc?
+
+    // In a multithread game engine, you might want to make an Arc<Player>. 
+    // The Mutexes protect the inner fields that are able to change (items). 
+    // while still allowing multiple threads to access id concurrently!
+    
+    struct Player {
+        id: String,
+        items: Mutex<Items>,
+    }
+
 ## Lifetimes
 
 *Think of lifetimes as a constraint, bounding output to the same lifetime as its input(s)*
@@ -136,7 +200,8 @@ Important iterating traits:
 - Only things relating to references need a lifetime, e.g. struct containing a ref, or strings
 - `'static` ensures a lifetime for the entirety of the program
 
-    // FUNCTION output lifetime binds to input variables: 
+    ```
+    //FUNCTION output lifetime binds to input variables: 
     // 1. We assign the lifetime 'a' to variables s, t 
     // 2. We constrain the output lifetime to 'a' as well
     // 3. Meaning the output now has to live as long as the smaller of s or t
