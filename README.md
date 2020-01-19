@@ -1,3 +1,15 @@
+## TOC 
+- [Strings](#Strings)
+- [Return Handling](#Return\ Handling)
+- [Iterators](#Iterators)
+- [Generics](#Generics)
+- [References](#References)
+- [Channels & Threads](#Channels\ &\ Threads)
+- [Lifetimes](#Lifetimes)
+- [Closures](#Closures)
+- [Important Traits](#Important\ Traits)
+- [Important Crates](#Important\ Crates)
+
 ## Stack vs Heap
 
 - `Stack`: Just the vars that exist only during a function
