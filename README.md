@@ -1,12 +1,15 @@
 ## TOC 
 - [Strings](#Strings)
+- [Vectors](#Vectors)
 - [Return Handling](#Return-Handling)
 - [Iterators](#Iterators)
 - [Generics](#Generics)
-- [References](#References)
-- [Channels & Threads](#Channels--Threads)
 - [Lifetimes](#Lifetimes)
 - [Closures](#Closures)
+- [References](#References)
+- [Threads](#Threads)
+- [Channels](#Channels)
+- [Important Structs](#Important-Structs)
 - [Important Traits](#Important-Traits)
 - [Important Crates](#Important-Crates)
 
@@ -23,6 +26,12 @@
 
 - Trait `AsRef<str>` : if S (generic var) is already a string, then it returns pointer to itself, but if it's already a pointer to str, then it doesn't do anything (no op). Has method `.as_ref()` *Saves me from implementing fns for both strings and slices*
 - `format!("a {}", n)`: returns string, concatenates
+
+## Vectors
+
+    // Common uses
+    let mut v = Vec::with_capacity(100);
+    v.split_at_mut(index); // splits vec returning mut vecs
 
 ## Return Handling
 
@@ -130,80 +139,6 @@ Important iterating traits:
     // It makes the type available for the function
     fn print_c<I:TraitA>(foo:I) {
 
-## References
-
-    &i32        // a reference
-    &'a i32     // a reference with an explicit lifetime
-    &'a mut i32 // a mutable reference with an explicit lifetime
-
-### Rc: Reference count
-
-*Single thread use only: doesn't impl sync and send*
-
-- `Rc<>`: generic struct, like a garbage collector.  `(reference count, ptr to data)` When you clone an Rc, it just increments the count without copying the data; when it reaches 0 it drops its internal pointer.
-- `Rc::new(s)`: Turns into reference counted obj, & acts as a reference, usable with `.clone()`. S has to be immutable.
-
-    // Make sure to specific the Rc type when a var is going to be reference counted
-    s: Rc<String> // a generic type, acts as a reference to String
-
-### RefCell: a mutable borrow
-
-*Single thread use only: doesn't impl sync and send*
-
-- Internally: guards the borrow checker, makes sure changes are correct.
-- Externally: pretends that it doesn't change. To the borrow checker, it mimics immutable obj.
-- `Rc<<RefCell<s>>` , `Rc::new(RefCell::new(s))`, `let ... = s.borrow_mut()` and lastly `drop(s)` to disable the guard.
-
-## Channels & Threads
-
-- Main fn can terminate before new threads finish!
-
-    use std::thread::*;
-    use std::time::Duration;
-    
-    // Spinning up new thread
-    fn foo() {
-    	// closure for new thread actions
-    	spawn( || { println!("This is the new channel"); });
-    	println!("This is the initial thread");
-    	// allows time for new thread to finish before quitting fn
-    	sleep(Duration::from_millis(1000));
-    }
-
-- When you need to move **primitive** variables to be accessible inside threads, thanks to `Copy`:
-
-    spawn( move || { println!("{}", n); });
-
-- If `Copy` is not implemented for the var (e.g. moving a String btw threads), use:
-    - `arc`: atomic reference count
-    - `mutex`: a guard on mutation, allows mutation when ppl have a `lock` on it
-    - `lock()`: acquires the mutex's lock, returns Result<>.
-
-    use std::sync::{Arc, Mutex};
-    fn foo () {
-    	let m = Arc::new(Mutex::new(String::from("xyz")));
-    
-    	// Create a new arc mutex by copying original arc mutex
-    	// but really clone just increments the rc count
-    	let m2 = m.clone();
-    	// use m2 in new thread
-    	spawn ( ... let mut s = m2.lock().unwrap(); ... )
-    
-    	// use m in original thread
-    	let s = m.lock().unwrap();
-    }
-
-- When to use Mutex in Arc?
-
-    // In a multithread game engine, you might want to make an Arc<Player>. 
-    // The Mutexes protect the inner fields that are able to change (items). 
-    // while still allowing multiple threads to access id concurrently!
-    
-    struct Player {
-        id: String,
-        items: Mutex<Items>,
-    }
-
 ## Lifetimes
 
 *Think of lifetimes as a constraint, bounding output to the same lifetime as its input(s)*
@@ -247,6 +182,198 @@ Important iterating traits:
     pub fn edit_all<F>(&mut self, mut f: F)
     	where F: FnMut(&mut String), {...}
 
+    // Boxed closure type, usually used in threads, 
+    // allowing different fn to be sent to the same channel
+    Box<Fn(&mut String) + TraitB >
+
+## References
+
+    &i32        // a reference
+    &'a i32     // a reference with an explicit lifetime
+    &'a mut i32 // a mutable reference with an explicit lifetime
+    
+    Box<T>      // is for single ownership.
+    Rc<T>       // is for multiple ownership.
+    Arc<T>      // is for multiple ownership, but threadsafe.
+    Cell<T>     // is for “interior mutability” for Copy types; that is, when you need to mutate something behind a &T.
+
+### Reference count
+
+*Single thread use only: doesn't impl sync and send*
+
+- `Rc<>`: generic struct, like a garbage collector.  `(reference count, ptr to data)` When you clone an Rc, it just increments the count without copying the data; when it reaches 0 it drops its internal pointer.
+- `Rc::new(s)`: Turns into reference counted obj, & acts as a reference, usable with `.clone()`. S has to be immutable.
+
+    // Make sure to specific the Rc type when a var is going to be reference counted
+    s: Rc<String> // a generic type, acts as a reference to String
+
+### RefCell: a mutable borrow
+
+*Single thread use only: doesn't impl sync and send*
+
+- Internally: guards the borrow checker, makes sure changes are correct.
+- Externally: pretends that it doesn't change. To the borrow checker, it mimics immutable obj.
+- `Rc<<RefCell<s>>` , `Rc::new(RefCell::new(s))`, `let ... = s.borrow_mut()` and lastly `drop(s)` to disable the guard.
+
+## Threads
+
+- Main fn can terminate before new threads finish!
+
+    use std::thread::*;
+    use std::time::Duration;
+    
+    // Spinning up new thread
+    fn foo() {
+    	// closure for new thread actions
+    	spawn( || { println!("This is the new channel"); });
+    	println!("This is the initial thread");
+    	// allows time for new thread to finish before quitting fn
+    	sleep(Duration::from_millis(1000));
+    }
+
+    // Diff way to wait for threads to complete
+    let mut children = Vec::new();
+    let child = thread::spawn(...);
+    for child in children { child.join().expect("thread panic");
+
+- When you need to move **primitive** variables to be accessible inside threads, thanks to `Copy`:
+
+    spawn( move || { println!("{}", n); });
+
+### Arc, Mutex
+
+If `Copy` is not implemented for the var (e.g. moving a String btw threads), use: 
+
+- `arc`: atomic reference count.
+- `mutex`: a guard on mutation, allows mutation when ppl have a `lock` on it
+- `lock()`: acquires the mutex's lock, ensuring its only held by 1 obj, returns Result<>.
+
+    use std::sync::{Arc, Mutex};
+    fn foo () {
+    	let m = Arc::new(Mutex::new(String::from("xyz")));
+    
+    	// Create a new arc mutex by copying original arc mutex
+    	// but really clone just increments the rc count
+    	let m2 = m.clone();
+    	// use m2 in new thread
+    	spawn ( ... let mut s = m2.lock().unwrap(); ... )
+    
+    	// use m in original thread
+    	let s = m.lock().unwrap();
+    }
+
+When to use Mutex in Arc?
+
+    // In a multithread game engine, you might want to make an Arc<Player>. 
+    // The Mutexes protect the inner fields that are able to change (items). 
+    // while still allowing multiple threads to access id concurrently!
+    
+    struct Player {
+        id: String,
+        items: Mutex<Items>,
+    }
+
+### Channels
+
+- A function returning: `Sender<T>` and `Receiver<T>` endpoints, where T is type of msg to be transferred, allowing async communications between threads
+- `mpsc`: means Multi Producer Single Consumer. We can clone sender, but not receiver.
+- Drop(channel senders) will close the channel automatically
+- **Fns have to be Boxed** before sending across channel
+
+    //Good pattern
+    std::sync::mpsc::channel;
+    
+    fn foo() {
+    	let (ch_s, ch_r) = channel<...>();
+    
+    	// channel that sends a done signal, instead of waiting
+    	let (done_s, done_r) = channel<()>();
+    
+    	std::thread::spawn (move || 
+    		loop {
+    			match ch_r.recv() {
+    				Ok(_) => {...}
+    				Err(_) => { done_s.send(()).unwrap() }
+    		}
+    	}
+    
+      // sending stuff through channels
+    	ch_s.send(...)...
+      let ch_2 = ch_s.clone();
+    	ch_2.send(...)...
+    
+    	// Need to manually drop the channels or infinite loop occurs
+    	drop(ch_s);
+      drop(ch_2);
+    
+    	done_r.recv().ok();
+    }
+
+### ThreadPools
+
+    pub struct ThreadPool {
+        ch_s: Option<mpsc::Sender<Box<Fn() + Send>>>,
+        n: u32,
+        ch_done: mpsc::Receiver<()>,
+    }
+    
+    impl ThreadPool {
+        pub fn new(n: u32) -> Self {
+            let (ch_s, ch_r) = mpsc::channel();
+            let a = Arc::new(Mutex::new(ch_r)); // multi receiver
+            let (ch_done_s, ch_done) = mpsc::channel();
+    
+            for _ in 0..n {
+                let a2 = a.clone();
+                let ch_done_2 = ch_done_s.clone();
+                // This thread will loop: waiting on the receiver
+                // for the next job that it is going to do
+                std::thread::spawn(move || loop {
+                    let m = a2.lock().unwrap();
+                    let f: Box<Fn() + Send> = match m.recv() {
+                        Ok(f) => f, 
+                        Err(_) => {
+                            ch_done_2.send(()).ok();
+                            return;
+                        }
+                    };
+                    // drop our hold on the mutex before we run f
+                    // otherwise only one fn can run at a time
+                    drop(m);
+                    f();
+                });            
+            }
+    
+            ThreadPool{ch_s:Some(ch_s) , n, ch_done}
+        }
+    
+        pub fn run<F:Fn() + Send + 'static>(&self, f:F) {
+            if let Some(ref ch_s) = self.ch_s {
+                ch_s.send(Box::new(f)).unwrap();
+            }
+        }
+    
+        // consumes self at the end
+        pub fn wait(mut self) {
+            self.ch_s.take();  // drops our sender
+            for _ in 0..self.n {
+                self.ch_done.recv().unwrap(); // waits for n done messages to come back
+            }
+        }
+    }
+    
+    fn main() {
+    	let tp = ThreadPool::new(n_of_threads);
+    	for something_i_want_n_times {
+    		tp.run(...)
+    	}
+    	tp.wait();
+    }
+
+## Important Structs
+
+- `Box`: A pointer type for heap allocation. Allocates memory on the heap and then places x/anything into it. When it's **dropped**, the memory it points to will be freed.
+
 ## Important Traits
 
 ### From vs Into
@@ -266,4 +393,4 @@ Important iterating traits:
 
 - `Failure`: makes custom error creation easier
 - `Itertools`: interleave(), interlace() *for strings* , combines iterators together in woven way
--
+- `Rayon`: Thread, pool handling by allowing **parallel iterators.** `intoParallelIterator`
