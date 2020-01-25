@@ -1,4 +1,8 @@
 ## TOC 
+- [Important Traits](#Important-Traits)
+- [Important Crates](#Important-Crates)
+- [Important Shorthands](#Important-Shorthands)
+- [Stack vs Heap](#Stack-vs-Heap)
 - [Strings](#Strings)
 - [Vectors](#Vectors)
 - [Return Handling](#Return-Handling)
@@ -9,23 +13,52 @@
 - [References](#References)
 - [Threads](#Threads)
 - [Channels](#Channels)
-- [Important Structs](#Important-Structs)
-- [Important Traits](#Important-Traits)
-- [Important Crates](#Important-Crates)
+- [Patterns](#Patterns)
+- [Macros](#Macros)
+
+
+## Important Traits
+
+- `from` and `into`: *Two sides of the same coin, returns the same Type the trait is impl on. `Into` is free after impl `From`*
+
+    let my_string = String::from(my_str);
+    let num: Number = int.into();
+
+- `PartialOrd`: Allows the > , < , = operators in T
+- `std::ops::AddAssign`: Allows arithmetic operations in T
+- `Copy`: Allows copy for primitives, rather than just move
+- `Default`: `.. Default::default()` fills in defaults for a struct/obj;
+
+## Important Crates
+
+- `Failure`: makes custom error creation easier
+- `Itertools`: interleave(), interlace() *for strings* , combines iterators together in woven way
+- `Rayon`: Thread, pool handling by allowing **parallel iterators.** `intoParallelIterator`
+
+## Important Shorthands
+
+- `..`: inclusive range operator,  e.g. `start..=end`
+- `..`: struct update syntax, i.e. remaining fields not explicitly set should have the same value as the fields in the given instance. `..Default::default()` or `..user1`
 
 ## Stack vs Heap
 
 - `Stack`: Just the vars that exist only during a function
-- `Heap`: Memory that's generally available. Need to free it before ending program.
+- `Heap`: Memory that's generally available. Need to free it before ending program. e.g. `String` , `Box`, `Hashmap`, `Arc`, `Rc`
+    - `Box`: A pointer type for heap allocation. Allocates memory on the heap and then places x/anything into it. When it's **dropped**, the memory it points to will be freed.
 
 ## Strings
+
+### Str Types
 
 - `String`: Dynamic string heap type. *Acts as a pointer. Use when I need owned string data (passing to other threads, building at runtime)*
 - `str`: immutable seq of bytes of dynamic/unknown length in memory. Commonly ref by `&str`, e.g. a ptr to a slice of data that can be anywhere. *Use when I only need a view of a string.*
 - `&'static str`: e.g. "foo" string literal, hardcoded into executable, loaded into mem when program runs.
 
+### Usage Conventions
+
 - Trait `AsRef<str>` : if S (generic var) is already a string, then it returns pointer to itself, but if it's already a pointer to str, then it doesn't do anything (no op). Has method `.as_ref()` *Saves me from implementing fns for both strings and slices*
 - `format!("a {}", n)`: returns string, concatenates
+- **Ptr to String → Option<String>**: `ptr.map(|s| s.to_string())`
 
 ## Vectors
 
@@ -370,27 +403,152 @@ When to use Mutex in Arc?
     	tp.wait();
     }
 
-## Important Structs
+## Patterns
 
-- `Box`: A pointer type for heap allocation. Allocates memory on the heap and then places x/anything into it. When it's **dropped**, the memory it points to will be freed.
+### Builder
 
-## Important Traits
+    pub enum Property {
+        Simple(&'static str, String), // e.g. x=5, y = 11
+        Style(&'static str, String),  // like css styles, e.g. border: ...
+        Transform(String),           
+    }
+    
+    pub struct SvgTag {
+        pub kind: &'static str,
+        pub properties: Vec<Property>,
+    }
+    
+    impl SvgTag {
+        pub fn new(kind: &'static str) -> Self {
+            SvgTag {
+                kind,
+                properties: Vec::new(),
+            }
+        }
+    
+        // Display: formats values, so we can use to_string() method on v
+        // Takes mutable self, takes ownership of self, changes it, then returns self
+        // fn that calls this fn loses access on it
+        pub fn property<V: Display>(mut self, k: &'static str, v:V) -> Self {
+            self.properties.push(Property::Simple(k, v.to_string()));
+            self
+        }
+    
+        pub fn style<V: Display>(mut self, k: &'static str, v:V) -> Self {
+            self.properties.push(Property::Style(k, v.to_string()));
+            self
+        }
+    
+        // sets the x property
+        pub fn x<V:Display>(self, v: V) -> Self {
+            self.property("x", v)
+        }
+    
+        pub fn y<V:Display>(self, v: V) -> Self {
+            self.property("y", v)
+        }
+    }
+    
+    // So we can simply do: 
+    let a = SvgTag::new("svg").w("60px").h("80px");
 
-### From vs Into
+### Defaults
 
-*Two sides of the same coin, returns the same Type the trait is impl on. `Into` is free after impl `From`*
+    struct Foo {...}
+    
+    impl Default for Foo {
+    	fn default() -> Self {
+    		Foo { ..:.., }
+    	}
+    }
+    ...
+    let f = Foo { ..Default:default()}
 
-    let my_string = String::from(my_str);
-    let num: Number = int.into();
+### Wrappers Traits
 
-### Number Comparators
+If I want to compose structs that contain certain (different?) traits. Create a wrapper struct. *This is usually done with iterators etc.*
 
-- `PartialOrd`: Allows the > , < , = operators in T
-- `std::ops::AddAssign`: Allows arithmetic operations in T
-- `Copy`: Allows copy for primitives, rather than just move
+    pub struct TraitWrap<A:TraitA, B:TraitB> {
+        a: A,
+        b: B,
+    }
+    
+    impl <A: TraitA, B:TraitB> TraitA for TraitWrap<A,B> {
+    		fn ... 
+    }
 
-## Important Crates
+## Macros
 
-- `Failure`: makes custom error creation easier
-- `Itertools`: interleave(), interlace() *for strings* , combines iterators together in woven way
-- `Rayon`: Thread, pool handling by allowing **parallel iterators.** `intoParallelIterator`
+[Full macro pattern syntax](https://doc.rust-lang.org/reference/macros.html)
+
+### Common Metavariables
+
+- `item`: an *[Item](https://doc.rust-lang.org/beta/reference/items.html); anything*
+- `block`: a *[BlockExpression](https://doc.rust-lang.org/beta/reference/expressions/block-expr.html); anything in `{}`*
+- `stmt`: a *[Statement](https://doc.rust-lang.org/beta/reference/statements.html)* without the trailing semicolon (except for item statements that require semicolons); *pattern with left hand side and then a normal match statement*
+- `pat`: a *[Pattern](https://doc.rust-lang.org/beta/reference/patterns.html)*
+- `expr`: an *[Expression](https://doc.rust-lang.org/beta/reference/expressions.html); anything that can resolve into answer, can include blocks*
+- `ident`: an [IDENTIFIER_OR_KEYWORD](https://doc.rust-lang.org/beta/reference/identifiers.html)
+- `tt`: a *[TokenTree](https://doc.rust-lang.org/beta/reference/macros.html#macro-invocation)* (a single [token](https://doc.rust-lang.org/beta/reference/tokens.html) or tokens in matching delimiters `()`, `[]`, or `{}`); *any single token or group matched inside brackets*
+
+### Declarative Macros
+
+Macros that write code to build objects
+
+    // This macro should be made avail whenever the crate 
+    // where the macro is defined, is brought into scope
+    #[macro_export]
+    
+    //macro decl
+    						// name of macro 
+    macro_rules! vec {
+    		// similar to a match expression
+    		// if pattern matches, the following code executes
+    		
+    		//1. a () always encompasses the whole pattern
+    		//2. $(...) contains values that match the pattern within the parens for use within the replacement code
+    		//3. expr, a metavariable, will match any Rust expression
+    		//4. $x is now the name of the matched expression
+    		//5. , indicates that "," could appear after the code that matches the expression.
+    		//6. * means pattern can repeat, i.e. standard regular expression
+    		// So Vec![1,2,3] means 1 and 2 and 3 are respectively the $x
+        ( $( $x:expr ),* ) => {
+            {
+                let mut temp_vec = Vec::new();
+    						// $()* is generated for each part that matches $()
+                $(
+                    temp_vec.push($x);
+                )*
+                temp_vec
+            }
+        };
+    }
+    
+
+### Macro refactoring
+
+Calling a macro within a macro is a good way to refactor the macro code
+
+    // SvgTag::new("svg").child(SvgTag::new("rect").x(7).y(7).w(9).h(9));
+    // svg! { svg => {rect x=7, y=7, w=9, h=9} };
+    
+    // Step 1: builds the children
+    //  { svg => {rect x=7, y=7, w=9, h=9} }
+    //     $s   $c
+        ($s:ident => $($c:tt)*) => {
+                    //p matches with "rect"
+            SvgTag::new(stringify!($s))
+                $(.child(svg!$c))*   //1. adds the child, recursively calls itself to be able to add children
+                //outer macros make all the changes, and then any inner macros in the result will then be evaluated
+        };
+    
+    // Step 2/c: builds the properties of a single child
+    // rect x=7, y=7, w=9, h=9
+        ($s:ident $($p:ident = $v:expr),* ) => {
+            SvgTag::new(stringify!($s))
+                $(.$p($v))*
+        };
+
+### Procedural Macros
+
+### Derive Macros
