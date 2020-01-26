@@ -15,6 +15,9 @@
 - [Channels](#Channels)
 - [Patterns](#Patterns)
 - [Macros](#Macros)
+- [Futures](#Futures)
+- [Databases](#Databases)
+- [Web Services](#Web-Services)
 
 ## Important Traits
 
@@ -498,7 +501,7 @@ If I want to compose structs that contain certain (different?) traits. Create a 
 
 ### Declarative Macros
 
-Macros that write code to build objects
+Macros that work like match statements on your code snippets to expand them into finished code.
 
     // This macro should be made avail whenever the crate 
     // where the macro is defined, is brought into scope
@@ -556,11 +559,24 @@ Calling a macro within a macro is a good way to refactor the macro code
 
 ### Procedural Macros
 
+Functions that operate on input code, outputs new code
+
     # This package does procedural macros
     # and can't be used for anything other than proc macros
     # this runs before other packages at compile time
     [lib]
     proc_macro = true
+
+    // In src/lib.rs
+    use proc_macro;
+    
+    #[some_attribute]
+    pub fn some_name(input: TokenStream) -> TokenStream {
+    }
+
+### Derive Macros
+
+**Good convention**: for structs, to create setter helper fn, e.g. `set_field1` `set_field2` .
 
     // using it
     #[derive(MyMacro)]
@@ -573,10 +589,6 @@ Calling a macro within a macro is a good way to refactor the macro code
     		format!(...).parse().unwrap()
     							// parse ret. Result, which is unrwapped
     }
-
-### Derive Macros
-
-**Good convention**: for struct helper fns, use macros to create `set_field1` `set_field2` functions.
 
     // helper setter fns for struct fields
     // 
@@ -614,6 +626,6 @@ Calling a macro within a macro is a good way to refactor the macro code
 
 ## Futures
 
-## Databases / Diesel
+## Databases
 
-## Web Services / Rock
+## Web Services
