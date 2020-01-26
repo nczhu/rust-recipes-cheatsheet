@@ -16,7 +16,6 @@
 - [Patterns](#Patterns)
 - [Macros](#Macros)
 
-
 ## Important Traits
 
 - `from` and `into`: *Two sides of the same coin, returns the same Type the trait is impl on. `Into` is free after impl `From`*
@@ -59,6 +58,7 @@
 - Trait `AsRef<str>` : if S (generic var) is already a string, then it returns pointer to itself, but if it's already a pointer to str, then it doesn't do anything (no op). Has method `.as_ref()` *Saves me from implementing fns for both strings and slices*
 - `format!("a {}", n)`: returns string, concatenates
 - **Ptr to String → Option<String>**: `ptr.map(|s| s.to_string())`
+- **String slice into a Result<expected type>**: `.parse()`
 
 ## Vectors
 
@@ -479,17 +479,22 @@ If I want to compose structs that contain certain (different?) traits. Create a 
 
 ## Macros
 
-[Full macro pattern syntax](https://doc.rust-lang.org/reference/macros.html)
-
 ### Common Metavariables
 
-- `item`: an *[Item](https://doc.rust-lang.org/beta/reference/items.html); anything*
-- `block`: a *[BlockExpression](https://doc.rust-lang.org/beta/reference/expressions/block-expr.html); anything in `{}`*
-- `stmt`: a *[Statement](https://doc.rust-lang.org/beta/reference/statements.html)* without the trailing semicolon (except for item statements that require semicolons); *pattern with left hand side and then a normal match statement*
-- `pat`: a *[Pattern](https://doc.rust-lang.org/beta/reference/patterns.html)*
-- `expr`: an *[Expression](https://doc.rust-lang.org/beta/reference/expressions.html); anything that can resolve into answer, can include blocks*
-- `ident`: an [IDENTIFIER_OR_KEYWORD](https://doc.rust-lang.org/beta/reference/identifiers.html)
-- `tt`: a *[TokenTree](https://doc.rust-lang.org/beta/reference/macros.html#macro-invocation)* (a single [token](https://doc.rust-lang.org/beta/reference/tokens.html) or tokens in matching delimiters `()`, `[]`, or `{}`); *any single token or group matched inside brackets*
+- `ident`: identifier, e.g. `x`, `foo`
+- `item`: item, e.g. `fn foo() {}`, `struct Bar`
+- `expr`: expression, e.g. `2+2`, `if x else y`, `f(42)`
+    - May only be followed by one of: `=>`  `,` `;`
+    - Expressions evaluate TO a value
+- `stmt`: single statement, e.g. `let x = 3`
+    - May only be followed by one of: `=>`  `,` `;`
+    - Statements return a value
+- `block`: block of code (stmts), e.g. `{let .. ; let ... return}`
+- `pat`: pattern, e.g. `Some(t)`, `(17, 'a')`, `_`
+- `path`: qualified name, e.g. `T::SpecialA`
+- `ty`: type, e.g. `i32`, `Vec<>`, `&T`
+- `tt`: single token tree, e.g. `()`, `[]`, or `{}`
+- `meta`: meta item in attrs, e.g. `cfg(attr = "...")`
 
 ### Declarative Macros
 
@@ -551,4 +556,64 @@ Calling a macro within a macro is a good way to refactor the macro code
 
 ### Procedural Macros
 
+    # This package does procedural macros
+    # and can't be used for anything other than proc macros
+    # this runs before other packages at compile time
+    [lib]
+    proc_macro = true
+
+    // using it
+    #[derive(MyMacro)]
+    
+    // defining it
+    #[proc_macro_derive(MyMacro)]
+    pub fn mymacro_derive(input: TokenStream) -> TokenStream {
+    		let mut top = input.into_iter();
+        let mut ttype: TokenTree = top.next().unwrap();
+    		format!(...).parse().unwrap()
+    							// parse ret. Result, which is unrwapped
+    }
+
 ### Derive Macros
+
+**Good convention**: for struct helper fns, use macros to create `set_field1` `set_field2` functions.
+
+    // helper setter fns for struct fields
+    // 
+    fn parse_row<I: Iterator<Item=TokenTree>>(i: &mut I) -> Option<Row> {...}
+    
+    pub fn mymacro_derive ... {
+    	let mut row_iter = if let Some(TokenTree::Group(g)) = top.next() {
+    		g.stream().into_iter()
+    	} else {
+    		panic!();
+    	};
+    
+    	// next step: create `rows` Vec
+    	// next step: parse_row  the rows into `rows`
+    
+    	// Create a setter function per struct field
+    	let lines:String = rows.iter().map ( |r| {
+    		format!("fn set_{0}(&mut self, v:{1} {{
+                self.{0} = v;
+    		        }} \n", r.name, r.ttype)
+        }).collect();
+    
+    	// Create trait wrapper: "impl name { *lines of code* }"
+    	let res = format!(
+            "impl {} {{ 
+            {}
+       }}", name, lines);
+        
+       eprintln!("Res == {}", res);
+    
+       res.parse().unwrap()
+    }
+
+- `cargo expand`: expands macro code to be more readable. Install through `cargo install cargo-expand`
+
+## Futures
+
+## Databases / Diesel
+
+## Web Services / Rock
