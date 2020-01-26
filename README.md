@@ -501,7 +501,7 @@ If I want to compose structs that contain certain (different?) traits. Create a 
 
 ### Declarative Macros
 
-Macros that work like match statements on your code snippets to expand them into finished code.
+Macros that work like match statements on your code snippets. It matches on illegal code, to replace them with legal Rust code.
 
     // This macro should be made avail whenever the crate 
     // where the macro is defined, is brought into scope
@@ -625,6 +625,70 @@ Functions that operate on input code, outputs new code
 - `cargo expand`: expands macro code to be more readable. Install through `cargo install cargo-expand`
 
 ## Futures
+
+Futures are cheap threads, when you don't have as many threads. How it works is different though. Threads are run on separate processes. Futures are: 
+
+- Obj with a function that will return if there is something it can't do, e.g. waiting on tcp , or file load
+- Hidden in a struct, which some other operator has to call to ask if it needs to do something
+- Like a Javascript promise: Returns something that you can call methods on; Easier to keep things in an asynchronous.
+- Is a Rust Library, not embedded in the language itself.
+- Zero cost abstraction: if you don't use it, it doesn't cost me to include it. (Conversely, green threads in Go do cost)
+- Async / Await (unstable) is here already (Jan 2020)
+
+### Simple Future
+
+    pub struct SimpleFuture {
+        n: i32, // or whatever other return type upon completion
+    }
+    
+    impl Future for SimpleFuture {
+        type Output = i32;
+        
+        // Req function: attempt to resolve future to final value, 
+        // registering the current task for wakeup if value is not yet available
+                    // Pin dereferences to Self, guarantees we can still access ptrs to internal ptrs inside this obj 
+                                         // Poll is an enum: ready (result), pending
+        fn poll(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Self::Output> {
+            Poll::Ready(self.n)
+        }
+    }
+    
+    // to run the future, use an executor, e.g.: 
+    use futures::executer::block_on(); //block thread til future is complete
+    block_on(SimpleFuture{n:10});
+
+### Future Combinators
+
+Important trait `FutureExt`: 
+
+- `map` can change result type of future
+- `then` chains on a closure f for additional computation on top of future
+- `into_stream` turns future into many objects
+
+    // Oneshot Channel: allows async via two different threads
+    // This si the equivalent of POLL, but multithreaded
+    // f is a Future obj
+     
+    let (ch_s, ch_r) = oneshot::channel();
+    block_on(f.map( move |n| ch_s.send(n+5) ));
+    let result = block_on(ch_r).unwrap();
+
+### Async Functions
+
+    // Don't have to create Future obj manually
+    // Create a async function instead that auto handles futures
+    
+    pub async fn simple_future_fn(p:i32) -> i32 { ... }
+    
+    block_on(async move {
+    	let v = simple_future_fn(n).await;
+      ch_s.send(v);
+    });
+    
+    block_on(async move {
+    	let r = ch_r.await.unwrap();
+    	... 
+    });
 
 ## Databases
 
