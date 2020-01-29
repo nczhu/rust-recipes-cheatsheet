@@ -36,6 +36,7 @@
 - `Failure`: makes custom error creation easier
 - `Itertools`: interleave(), interlace() *for strings* , combines iterators together in woven way
 - `Rayon`: Thread, pool handling by allowing **parallel iterators.** `intoParallelIterator`
+- `Tokio`: Provides multithread Future executor for Streams; handles async well, `tokio::run(a_future)`
 
 ## Important Shorthands
 
@@ -47,6 +48,10 @@
 - `Stack`: Just the vars that exist only during a function
 - `Heap`: Memory that's generally available. Need to free it before ending program. e.g. `String` , `Box`, `Hashmap`, `Arc`, `Rc`
     - `Box`: A pointer type for heap allocation. Allocates memory on the heap and then places x/anything into it. When it's **dropped**, the memory it points to will be freed.
+
+## File Structure
+
+- Lib, Bin in same directory ⇒ use Lib in Bin with `extern crate lib_name`
 
 ## Strings
 
@@ -626,7 +631,9 @@ Functions that operate on input code, outputs new code
 
 ## Futures
 
-Futures are cheap threads, when you don't have as many threads. How it works is different though. Threads are run on separate processes. Futures are: 
+A Future is an action with a delayed single result.
+
+Think of futures are cheap threads, when you don't have as many threads. How it works is different though. Threads are run on separate processes. Futures are: 
 
 - Obj with a function that will return if there is something it can't do, e.g. waiting on tcp , or file load
 - Hidden in a struct, which some other operator has to call to ask if it needs to do something
@@ -664,6 +671,7 @@ Important trait `FutureExt`:
 - `map` can change result type of future
 - `then` chains on a closure f for additional computation on top of future
 - `into_stream` turns future into many objects
+- `join` combines two futures into one
 
     // Oneshot Channel: allows async via two different threads
     // This si the equivalent of POLL, but multithreaded
@@ -689,6 +697,28 @@ Important trait `FutureExt`:
     	let r = ch_r.await.unwrap();
     	... 
     });
+
+### Stream
+
+A Stream (Reader) is a stream of results, like an `Iterator`, with a delay between each value.
+
+Streams look like Futures, but returns a Poll `Option<...>` rather than a enum of Ready(Result). Streams impl the Stream trait.
+
+    pub struct ReadStream { reader: A, buf:[u8;100], }
+    impl<A:AsyncRead + Unpin> Stream for ReadStream<A> {
+    	type Item = String;
+    
+    	// Acts like Iterator, to provide a streat of Results
+    	fn poll_next(self: Pin<&mut Self>, cx &mut Context) -> Poll<Option<Self::Item>> {
+    			let up = self.get_mut();
+          let r = Pin::new(&mut up.reader)
+          match r.poll_read(cx, &mut up.buf){
+                Poll::Ready(Ok(len)) => Poll::Ready(Some(String::from_utf8_lossy(&up.buf[..len]).to_string()));
+                Poll::Ready(Err(_e)) => Poll::Ready(None), // kind of hacky but ok
+                Poll::Pending => Poll::Pending,
+          }		
+    	}
+    }
 
 ## Databases
 
