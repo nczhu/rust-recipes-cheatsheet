@@ -157,7 +157,7 @@ Important iterating traits:
 - `IntoIterator`: Key trait that allows for loop to work, for things that doesn't naturally iterate over themselves
 - `a_vec.into_iter()`: turns a vector into an iterator
 
-## Generics
+## Generics & Traits
 
 *Generic Type, Functions & Trait imps*
 
@@ -171,10 +171,15 @@ Important iterating traits:
     // Or
     impl <T> ... where T:SomeTrait {...}
     
+    // Trait requirements: if type impl B, it might impl A
+    trait B: A
+    
     // 1. Refactor the multi-traits by creating a new Trait
-    pub trait CombiTrait:TraitA + TraitB {..// any fns ..}
+    pub trait CombiTrait: TraitA + TraitB {..// any fns ..}
     // 2. Impl CombiTrait for all T that has traitA/B, otherwise get error
     impl <T:TraitA + TraitB> CombiTrait for T {}
+    
+    
 
     // FUNCTIONS
     // It makes the type available for the function
@@ -631,7 +636,11 @@ Functions that operate on input code, outputs new code
 
 ## Futures
 
-A Future is an action with a delayed single result.
+A Future: a mechanism (action) for having an obj you know will return a delayed single result, in the future.
+
+Poll: enum with variants `Pending` and `Ready<T>`
+
+Runtime/Exector: Rust doesn't complete promises, you need something to poll the future, i.e. an executor like block_on
 
 Think of futures are cheap threads, when you don't have as many threads. How it works is different though. Threads are run on separate processes. Futures are: 
 
@@ -666,6 +675,8 @@ Think of futures are cheap threads, when you don't have as many threads. How it 
 
 ### Future Combinators
 
+Combinators are cheap bc only calling it takes up work, creating combinators are "lazy" operations. Combinators only wrap future in another one, and doesn't do anything until you call it.
+
 Important trait `FutureExt`: 
 
 - `map` can change result type of future
@@ -682,6 +693,10 @@ Important trait `FutureExt`:
     let result = block_on(ch_r).unwrap();
 
 ### Async Functions
+
+Async block resolves into an enum. The enum implements Future, and tracks the state of its own variables.
+
+`Await` must always be inside Async block to create a new state on the async enum. It adds state to the resulting future. (it doesn't actually await at the time we write it)
 
     // Don't have to create Future obj manually
     // Create a async function instead that auto handles futures
@@ -703,6 +718,8 @@ Important trait `FutureExt`:
 A Stream (Reader) is a stream of results, like an `Iterator`, with a delay between each value.
 
 Streams look like Futures, but returns a Poll `Option<...>` rather than a enum of Ready(Result). Streams impl the Stream trait.
+
+`Ready(Some(thing))`: means that stream has more to ask for
 
     pub struct ReadStream { reader: A, buf:[u8;100], }
     impl<A:AsyncRead + Unpin> Stream for ReadStream<A> {
