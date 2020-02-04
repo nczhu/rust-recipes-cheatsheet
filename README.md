@@ -17,7 +17,8 @@
 - [Macros](#Macros)
 - [Futures](#Futures)
 - [Databases](#Databases)
-- [Web Services](#Web-Services)
+- [Web Services](#Web-Servers)
+- [CLI](#CLI)
 
 ## Important Traits
 
@@ -739,4 +740,101 @@ Streams look like Futures, but returns a Poll `Option<...>` rather than a enum o
 
 ## Databases
 
-## Web Services
+Crate: Diesel
+
+Handles databases operations, builder patterns to auto build db functions.
+
+Downloading Diesel: `cargo install diesel_cli --no-default-features --features postgres`
+
+1. Create `.env` file with database url
+2. `diesel setup` creates database, with folder `migrations` with up/down sql files in the initial setup migration.
+3. `psql -d dbname`  then `\d` to see empty db.
+4. `diesel migration generate create_initial_tables`
+5. Create SQL commands in newly migration `up` file, then
+6. `diesel migration run` runs the migrations (db schema changes)
+7. `diesel migration redo` reverts all applied migrations
+
+    // to use schema.rs in a file:
+    #[macro_use]    // use diesel macros across entire crate 
+    extern crate diesel;
+    pub mod schema; // how it works https://diesel.rs/
+
+8. `cargo expand` shows us all the functions that are created by diesel macros.
+
+    // models.rs
+    use crate::schema::*;
+    
+    // Model declaration: be really careful with attrs ordering!!
+    #[derive(Queryable, Debug)]
+    pub struct User {
+        pub id: i32,
+        pub name: String,
+        password: String,
+    }
+    
+    impl User {
+        pub fn verify_pass(&self, password: &str) -> bool {
+            bcrypt::verify(password, &self.password).unwrap_or(false)
+        }
+    }
+    
+    // Helper structure to allow db to auto create userids
+    #[derive(Insertable, Queryable)]
+    #[table_name = "users"]
+    pub struct NewUser<'a> {
+        name: &'a str,
+        password: String, // ok to lose the pointer here
+    }
+    
+    pub fn new_user<'a>(name: &'a str, password: &str) -> NewUser<'a> {
+        NewUser {
+            name, 
+            password: bcrypt::hash(password, 7).unwrap()
+        }
+    }
+    
+    // Adding values to table
+    let added: User = diesel::insert_into(users::table).values(&user).get_result(&conn)?;
+    
+    // Reading values from table
+    let res = users::table.limit(10).load::<User>(&conn)?;
+    
+    // DB inner joins
+    let vals = table1::table
+                 .inner_join(table2::table)
+                 .inner_join(table3::table)
+                 .filter(table1::id.eq(id))
+    						 .select((...)) // select
+                 .load::<NewStruct>(&conn)?;
+
+## Web Servers
+
+**Crate**: Rocket
+
+## CLI
+
+**Crate**: clap
+
+    use clap::{clap_app, crate_version};
+    
+    // Define the CLI commands
+    let clap = clap_app!(cli_name => 
+                (about:"About this CLi")
+                (version: crate_version!())
+                (author: "Your name here")
+    
+    						// CLI with input args
+                (@subcommand cmd_1 => 
+                    (@arg field_1:+required "Field 1 Prompt")
+                    (@arg field_2:-u +takes_value "Field 2 is optional")
+                )
+    
+    						// CLI with no args
+                (@subcommand cmd_2 => )
+            ).get_matches(); //reads input from cli, makes everything fit
+    
+    // Matching commands
+    if let Some(ref sub) = clap.subcommand_matches("cmd_1") {
+    				// access value: 
+    	      sub.value_of("field_1").unwrap()
+    }
