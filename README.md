@@ -52,7 +52,28 @@
 
 ## File Structure
 
-- Lib, Bin in same directory ⇒ use Lib in Bin with `extern crate lib_name`
+Cargo.toml cheatsheet
+
+    // Generic Cargo.toml
+    
+    // library 
+    [lib] // some library
+    name = "..."
+    path = "..."
+    
+    // binaries 
+    // access libaries with `extern crate lib_name;`
+    [[bin]]
+    name = "..."
+    path = "..."
+    
+    [dependencies]
+    dep_name = "version_num"
+    
+    // Alternative to saying dep_name = {version =..., features = ["..."]}
+    [dependencies.dep_name]
+    version = "..."
+    features = ["..."]  // features are conditional compilation flags
 
 ## Strings
 
@@ -761,6 +782,12 @@ Downloading Diesel: `cargo install diesel_cli --no-default-features --features p
 
 8. `cargo expand` shows us all the functions that are created by diesel macros.
 
+    //Creating a DB connection in lib.rs based on .env setup
+    pub fn create_connection() -> Result<PgConnection, failure::Error> {
+        dotenv::dotenv().ok();
+        Ok(PgConnection::establish(&std::env::var("DATABASE_URL")?)?)
+    }
+
     // models.rs
     use crate::schema::*;
     
@@ -809,7 +836,68 @@ Downloading Diesel: `cargo install diesel_cli --no-default-features --features p
 
 ## Web Servers
 
-**Crate**: Rocket
+**Crate**: Rocket - framework for web services to build websites
+
+`rocket::ignite().launch()`:: creates rocket builder, then starts rocket server
+
+    #![feature(proc_macro_hygiene, decl_macro)]
+    #[macro_use]
+    extern crate rocket;
+    use rocket::response::{Responder, NamedFile};
+    
+    #[get("/")]
+    fn root() -> Result<impl Responder<'static>, failure::Error> {
+        NamedFile::open("site/static/index.html").map_err(|e| e.into())
+    }
+    
+    // Enabling static file routes
+    #[get("/<path..>")]
+    fn static_file(path: PathBuf) -> Result<impl Responder<'static>, failure::Error> {
+        let path = PathBuf::from("site/static").join(path);     // creates site/static/new_path
+        NamedFile::open(path).map_err(|e| e.into())
+    }
+    
+    fn main() {
+        rocket::ignite()      //creates rocket builder
+                .mount("/", routes![root, static_file])    // mounts route & fn
+                .launch();    // starts rocket server, returns error on every case
+
+Custom errors & types in Response
+
+    use failure_derive::Fail; 
+    // allows custom errors to be returned //response is the actual response being returned
+    // getting response happens after we return it, friendly to be converted to futures. 
+    use rocket::response::{Responder, Response};
+    use rocket::Request;
+            // status code, information that passed to client end for handling
+    use rocket::http::{Status, ContentType};
+    use std::io::Cursor; // read seeker for our response
+    
+    #[derive(Fail, Debug)]
+    pub enum CustomWebErr {
+        #[fail(display = "IO Error{}", 0)]
+        IOErr(std::io::Error),
+    }
+    
+    // makes e.into() possible
+    impl From<std::io::Error> for CustomWebErr {
+        fn from(e:std::io::Error) -> Self {
+            CustomWebErr::IOErr(e)
+        }
+    }
+    
+    // implemented responder to be able to respond with custom error
+    impl <'r> Responder<'r> for CustomWebErr {
+        fn respond_to(self, _:&Request) -> rocket::response::Result<'r> {
+            let res = Response::build()
+                        .status(Status::InternalServerError)
+                        .header(ContentType::Plain)
+                        .sized_body(Cursor::new(format!("Error doing loading page: {}", self))).finalize(); //to get this we need to impl seekable
+            Ok(res)
+        }
+    }
+
+Next: TODO getting web server to run with database/diesel 
 
 ## CLI
 
