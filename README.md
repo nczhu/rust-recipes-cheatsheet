@@ -857,6 +857,17 @@ Downloading Diesel: `cargo install diesel_cli --no-default-features --features p
         NamedFile::open(path).map_err(|e| e.into())
     }
     
+    #[post("/login", data="<dt>")] //syntax: quote + <>
+    fn login(dt: Form<LoginData>, db:DPool) -> Result<impl Responder<'static>, DoodleWebErr> {
+        let ldform = dt.into_inner();
+        let vals = users::table::filter(users::name.eq(ldform.name)).load::<User>(&db.0)?;
+        let user = vals.iter().next().ok_or(DoodleWebErr::UserDoesNotExistError)?;
+        if ! user.verify_pass(&ldform.pass) {
+            return Err(DoodleWebErr::PasswordError)
+        }
+        Ok("Password passed") // fine bc String impl Responder
+    }
+    
     fn main() {
         rocket::ignite()      //creates rocket builder
                 .mount("/", routes![root, static_file])    // mounts route & fn
@@ -897,7 +908,56 @@ Custom errors & types in Response
         }
     }
 
-Next: TODO getting web server to run with database/diesel 
+Configure Rocket.toml
+
+    [global.databases]
+    doodlebase = {url = "postgres://acct:pw@localhost/dbname"}
+
+### Sessions
+
+    //in session.rs
+    pub struct Session(Arc<Mutex<HashMap<u64,User>>>);
+    
+    impl Session {
+        pub fn new() -> Self {
+            Session(Arc::new(Mutex::new(HashMap::new())))
+        }
+    
+        pub fn get(&self, k:u64) -> Option<User> {
+            self.0.lock().unwrap().get(&k).map(|u| u.clone())
+        }
+    }
+    
+    // in main.rs
+    // pub main()
+    let sess = session::Session::new();
+        rocket::ignite()
+                .mount("/", routes![...])
+                .attach(DP::fairing())
+                .manage(sess) // attaches session
+                .launch();
+    
+    // Putting Session
+    let sess_id = ss.put(user.clone());
+    cookies.add(Cookie::new("login", sess_id.to_string()));
+    
+    // Getting Session
+    let login = cookies.get("login").ok_or(DoodleWebErr::NoCookie)?.value();
+    let user = st.get(login.parse().map_err(|_| "DoodleWebErr::NoCookie")?)
+               .ok_or(DoodleWebErr::NoSession)?;
+
+### Static templates
+
+*With Maud: compile time templates*
+
+    // pages that return Result<impl Responder>
+    Ok(
+    	html! {     // a maud macro
+    		(DOCTYPE)
+    		head { meta charset = "utf-8" }
+    		body { ... }
+    	}
+    )
 
 ## CLI
 
