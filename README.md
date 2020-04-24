@@ -1057,7 +1057,7 @@ Ok(
 ## CLI
 
 **Crate**: clap
-```
+```rust
 use clap::{clap_app, crate_version};
 
 // Define the CLI commands
