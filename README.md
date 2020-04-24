@@ -32,7 +32,7 @@
 - `Copy`: Allows copy for primitives, rather than just move
 - `Default`: `.. Default::default()` fills in defaults for a struct/obj;
 
-## Important Crates
+## Basic Crates
 
 - `Failure`: makes custom error creation easier
 - `Itertools`: interleave(), interlace() *for strings* , combines iterators together in woven way
@@ -285,28 +285,36 @@ Important iterating traits:
 
 ## Threads
 
-- Main fn can terminate before new threads finish!
+- Be careful: The main fn can terminate before new threads finish!
 
-    use std::thread::*;
-    use std::time::Duration;
-    
-    // Spinning up new thread
-    fn foo() {
-    	// closure for new thread actions
-    	spawn( || { println!("This is the new channel"); });
-    	println!("This is the initial thread");
-    	// allows time for new thread to finish before quitting fn
-    	sleep(Duration::from_millis(1000));
-    }
+Passing shared data foo btw threads: 
+```rust
+let foo = Arc::new<Mutex<data>>;
+let (foo_1, foo_2) = (foo_1.clone(), foo_2.clone());
 
-    // Diff way to wait for threads to complete
-    let mut children = Vec::new();
-    let child = thread::spawn(...);
-    for child in children { child.join().expect("thread panic");
+// the **Move** closure **owns** its values: not subject to borrow checker, so variables inside can live outside its og value
+let thread_handle_1 = thread::spawn( move || fn_1(foo_1) )
+let thread_handle_2 = thread::spawn( move || fn_2(foo_2) )
+
+let result_1 = thread_handle_1.join.unwrap();
+
+// ========================
+// To use the Mutex var in fn_1:
+{ 
+    // retrieve lock inside a scope so the lock is immediately dropped
+    foo_1.lock().unwrap();
+}
+```
+
+```rust
+// Diff way to wait for threads to complete
+let mut children = Vec::new();
+let child = thread::spawn(...);
+for child in children { child.join().expect("thread panic");
+```
 
 - When you need to move **primitive** variables to be accessible inside threads, thanks to `Copy`:
-
-    spawn( move || { println!("{}", n); });
+`spawn( move || { println!("{}", n); });`
 
 ### Arc, Mutex
 
@@ -316,128 +324,176 @@ If `Copy` is not implemented for the var (e.g. moving a String btw threads), use
 - `mutex`: a guard on mutation, allows mutation when ppl have a `lock` on it
 - `lock()`: acquires the mutex's lock, ensuring its only held by 1 obj, returns Result<>.
 
-    use std::sync::{Arc, Mutex};
-    fn foo () {
-    	let m = Arc::new(Mutex::new(String::from("xyz")));
-    
-    	// Create a new arc mutex by copying original arc mutex
-    	// but really clone just increments the rc count
-    	let m2 = m.clone();
-    	// use m2 in new thread
-    	spawn ( ... let mut s = m2.lock().unwrap(); ... )
-    
-    	// use m in original thread
-    	let s = m.lock().unwrap();
-    }
+```rust
+use std::sync::{Arc, Mutex};
+fn foo () {
+    let m = Arc::new(Mutex::new(String::from("xyz")));
+
+    // Create a new arc mutex by copying original arc mutex
+    // but really clone just increments the rc count
+    let m2 = m.clone();
+    // use m2 in new thread
+    spawn ( ... let mut s = m2.lock().unwrap(); ... )
+
+    // use m in original thread
+    let s = m.lock().unwrap();
+}
+```
 
 When to use Mutex in Arc?
+```rust
+// In a multi-thread game engine, you might want to make an Arc<Player>. 
+// The Mutexes protect the inner fields that are able to change (items). 
+// while still allowing multiple threads to access id concurrently!
 
-    // In a multithread game engine, you might want to make an Arc<Player>. 
-    // The Mutexes protect the inner fields that are able to change (items). 
-    // while still allowing multiple threads to access id concurrently!
-    
-    struct Player {
-        id: String,
-        items: Mutex<Items>,
-    }
+struct Player {
+    id: String,
+    items: Mutex<Items>,
+}
+```
 
-### Channels
+### MPSC Channels
 
 - A function returning: `Sender<T>` and `Receiver<T>` endpoints, where T is type of msg to be transferred, allowing async communications between threads
 - `mpsc`: means Multi Producer Single Consumer. We can clone sender, but not receiver.
 - Drop(channel senders) will close the channel automatically
 - **Fns have to be Boxed** before sending across channel
 
-    //Good pattern
-    std::sync::mpsc::channel;
-    
-    fn foo() {
-    	let (ch_s, ch_r) = channel<...>();
-    
-    	// channel that sends a done signal, instead of waiting
-    	let (done_s, done_r) = channel<()>();
-    
-    	std::thread::spawn (move || 
-    		loop {
-    			match ch_r.recv() {
-    				Ok(_) => {...}
-    				Err(_) => { done_s.send(()).unwrap() }
-    		}
-    	}
-    
-      // sending stuff through channels
-    	ch_s.send(...)...
-      let ch_2 = ch_s.clone();
-    	ch_2.send(...)...
-    
-    	// Need to manually drop the channels or infinite loop occurs
-    	drop(ch_s);
-      drop(ch_2);
-    
-    	done_r.recv().ok();
-    }
+*MPSC uses unbounded channels: so if read faster than write, then we can run out of memory. Medium performance.* 
+```rust
+// Assume ThreadA --[channel1]--> ThreadB --[channel2]--> ThreadC
 
-### ThreadPools
+// Naming convention: 
+    // B_tx: Sender<Vec<u8>>, transmitting to thread b, from a 
+    // ThreadB_rx: Receiver<Vec<u8>>, receiving in thread b
+let (b_tx, b_rx) = mpsc::channel();
+let (c_tx, c_rx) = mpsc::channel();
 
-    pub struct ThreadPool {
-        ch_s: Option<mpsc::Sender<Box<Fn() + Send>>>,
-        n: u32,
-        ch_done: mpsc::Receiver<()>,
-    }
-    
-    impl ThreadPool {
-        pub fn new(n: u32) -> Self {
-            let (ch_s, ch_r) = mpsc::channel();
-            let a = Arc::new(Mutex::new(ch_r)); // multi receiver
-            let (ch_done_s, ch_done) = mpsc::channel();
-    
-            for _ in 0..n {
-                let a2 = a.clone();
-                let ch_done_2 = ch_done_s.clone();
-                // This thread will loop: waiting on the receiver
-                // for the next job that it is going to do
-                std::thread::spawn(move || loop {
-                    let m = a2.lock().unwrap();
-                    let f: Box<Fn() + Send> = match m.recv() {
-                        Ok(f) => f, 
-                        Err(_) => {
-                            ch_done_2.send(()).ok();
-                            return;
-                        }
-                    };
-                    // drop our hold on the mutex before we run f
-                    // otherwise only one fn can run at a time
-                    drop(m);
-                    f();
-                });            
-            }
-    
-            ThreadPool{ch_s:Some(ch_s) , n, ch_done}
-        }
-    
-        pub fn run<F:Fn() + Send + 'static>(&self, f:F) {
-            if let Some(ref ch_s) = self.ch_s {
-                ch_s.send(Box::new(f)).unwrap();
-            }
-        }
-    
-        // consumes self at the end
-        pub fn wait(mut self) {
-            self.ch_s.take();  // drops our sender
-            for _ in 0..self.n {
-                self.ch_done.recv().unwrap(); // waits for n done messages to come back
-            }
+// pass in the sender to thread 1
+let thread_a = thread::spawn(move || fn_1(b_tx));
+let thread_b = thread::spawn(move || fn_2(b_rx, c_tx));
+let thread_c = thread::spawn(move || fn_3(c_rx));
+
+// ========================
+// To use channels in fn_2:
+b_rx.recv().unwrap(); // a blocking call
+c_tx.send(Vec::from(*some_byte_slice*));
+
+// Sending could fail, so best to handle if producer errors:
+if b_tx.send(..).is_err() { break; }
+```
+Another good pattern:
+```rust
+//Good pattern
+std::sync::mpsc::channel;
+
+fn foo() {
+    let (ch_s, ch_r) = channel<...>();
+
+    // channel that sends a done signal, instead of waiting
+    let (done_s, done_r) = channel<()>();
+
+    std::thread::spawn (move || 
+        loop {
+            match ch_r.recv() {
+                Ok(_) => {...}
+                Err(_) => { done_s.send(()).unwrap() }
         }
     }
-    
-    fn main() {
-    	let tp = ThreadPool::new(n_of_threads);
-    	for something_i_want_n_times {
-    		tp.run(...)
-    	}
-    	tp.wait();
+
+  // sending stuff through channels
+    ch_s.send(...)...
+  let ch_2 = ch_s.clone();
+    ch_2.send(...)...
+
+    // Need to manually drop the channels or infinite loop occurs
+    drop(ch_s);
+  drop(ch_2);
+
+    done_r.recv().ok();
+}
+```
+
+#### ThreadPools
+```rust
+pub struct ThreadPool {
+    ch_s: Option<mpsc::Sender<Box<Fn() + Send>>>,
+    n: u32,
+    ch_done: mpsc::Receiver<()>,
+}
+
+impl ThreadPool {
+    pub fn new(n: u32) -> Self {
+        let (ch_s, ch_r) = mpsc::channel();
+        let a = Arc::new(Mutex::new(ch_r)); // multi receiver
+        let (ch_done_s, ch_done) = mpsc::channel();
+
+        for _ in 0..n {
+            let a2 = a.clone();
+            let ch_done_2 = ch_done_s.clone();
+            // This thread will loop: waiting on the receiver
+            // for the next job that it is going to do
+            std::thread::spawn(move || loop {
+                let m = a2.lock().unwrap();
+                let f: Box<Fn() + Send> = match m.recv() {
+                    Ok(f) => f, 
+                    Err(_) => {
+                        ch_done_2.send(()).ok();
+                        return;
+                    }
+                };
+                // drop our hold on the mutex before we run f
+                // otherwise only one fn can run at a time
+                drop(m);
+                f();
+            });            
+        }
+
+        ThreadPool{ch_s:Some(ch_s) , n, ch_done}
     }
 
+    pub fn run<F:Fn() + Send + 'static>(&self, f:F) {
+        if let Some(ref ch_s) = self.ch_s {
+            ch_s.send(Box::new(f)).unwrap();
+        }
+    }
+
+    // consumes self at the end
+    pub fn wait(mut self) {
+        self.ch_s.take();  // drops our sender
+        for _ in 0..self.n {
+            self.ch_done.recv().unwrap(); // waits for n done messages to come back
+        }
+    }
+}
+
+fn main() {
+    let tp = ThreadPool::new(n_of_threads);
+    for something_i_want_n_times {
+        tp.run(...)
+    }
+    tp.wait();
+}
+```
+
+*Alternative is crossbeam channels: which is bounded and unbounded.*
+
+### Crossbeam Channels
+```rust
+// Assume ThreadA -> [channel1] -> ThreadB   // only some metadata this time
+//        ThreadA -> [channel2] -> ThreadC
+
+// Main Usage: you typically want to bound the writing threads since read is always faster
+use crossbeam::channel::{bounded, unbounded}
+let (b_tx, b_rx) = unbounded;
+let (c_tx, c_rx) = bounded(1024); // blocking after 1024 message cap
+
+let thread_a = thread::spawn(move || fn_1(b_tx, c_tx)); 
+let thread_b = thread::spawn(move || fn_2(b_rx)); 
+let thread_c = thread::spawn(move || fn_3(c_rx)); // the slower write thread
+
+// Sender/Receiver params work the same as MPSC
+```
 ## Patterns
 
 ### Builder
