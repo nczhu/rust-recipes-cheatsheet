@@ -572,7 +572,7 @@ impl Default for Foo {
     }
 }
 ...
-let f = Foo { ..Default:default()}
+let f = Foo { ..Default::default()}
 ```
 
 ### Wrappers Traits
