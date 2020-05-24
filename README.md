@@ -192,6 +192,27 @@ Important iterating traits:
 
 ## Generics & Traits
 
+*Generic Types*
+```rust
+// Declaration
+pub const fn new() -> Vec<T> 
+
+// Usage
+path::<datatype>::method()
+let a = Vec::<bool>::new()
+```
+
+*Generic Functions* 
+```rust
+// Declaration
+fn collect<B>(self) -> B
+
+// Usage
+method::<datatype>()
+let a = iter.collect::<Vec<i32>>();
+```
+
+
 *Generic Type, Functions & Trait imps*
 ```rust
 // TRAITS
