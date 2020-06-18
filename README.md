@@ -25,8 +25,8 @@
 ```rust
 vec![0,1,2] or Vec::new()
 
-v.push()          // in the back
-v.pop() -> Option
+v.push()                    // LIFO stack
+v.pop() -> Option           // LIFO stack
 v.len() -> usize
 v.insert(*i*, *elem*)
 v.remove(*i*) -> elem
@@ -34,9 +34,10 @@ v.remove(*i*) -> elem
 v.append(vec2)
 v.truncate(*l*)
 v.sort()
-v.dedup()         // unique set
-v.retain(|&x| x % 2 == 0); //filter
+v.dedup()                   // unique set
+v.retain(|&x| x % 2 == 0);  //filter
 v.splice(..2, v2.iter().cloned()) -> &removed times )
+v.split_at_mut(i);          // splits vec returning mut vecs
 v.contains(&30) -> bool
 ```
 
@@ -106,7 +107,7 @@ m.len()
 m.is_empty()
 ```
 
-##Hashmap
+## Hashmap
 ```rust
 use std::collections::HashMap;
 HashMap::new()
@@ -130,7 +131,22 @@ let v = m.entry(k).or_insert(v_default); // -> mut V
 ## Result / Option
 
 ```rust
-// Chain fn if Ok, else return Err
+pub enum Result<T,E> {
+    Ok(T),
+    Err(E),
+}
+
+pub enum Option<T> {
+    Some(T),
+    None,
+}
+
+// Result -> Option
+get_result.ok()?;
+// Option -> Result
+ok_or("An Error message if the Option is None")?; // ok_or converts None into Error
+
+// Chaining fn if Ok, else return Err
 .and_then(fn)
 ```
 
