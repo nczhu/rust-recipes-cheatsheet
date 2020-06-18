@@ -1,12 +1,15 @@
 ## TOC 
+- [Vector](#Vector)
+- [Iterator](#Iterator)
+- [String](#String)
+- [Tree](#Tree)
+- [HashMap](#Hashmap)
+- [Result & Option](#Result-&-Option)
+- [Match](#Match)
 - [Important Traits](#Important-Traits)
 - [Important Crates](#Important-Crates)
-- [Important Shorthands](#Important-Shorthands)
-- [Stack vs Heap](#Stack-vs-Heap)
-- [Strings](#Strings)
-- [Vectors](#Vectors)
-- [Return Handling](#Return-Handling)
-- [Iterators](#Iterators)
+- [File Structure](#File-Structure)
+- [Shorthands](#Shorthands)
 - [Generics](#Generics)
 - [Lifetimes](#Lifetimes)
 - [Closures](#Closures)
@@ -128,7 +131,7 @@ for v in m.values_mut()
 let v = m.entry(k).or_insert(v_default); // -> mut V
 *v+= 1;
 ```
-## Result / Option
+## Result & Option
 
 ```rust
 pub enum Result<T,E> {
@@ -188,11 +191,6 @@ assert_eq!(i.get(), 2);
 - `Rayon`: Thread, pool handling by allowing **parallel iterators.** `intoParallelIterator`
 - `Tokio`: Provides multithread Future executor for Streams; handles async well, `tokio::run(a_future)`
 
-## Ellipsis
-
-- `..`: inclusive range operator,  e.g. `start..=end`
-- `..`: struct update syntax, i.e. remaining fields not explicitly set should have the same value as the fields in the given instance. `..Default::default()` or `..user1`
-
 ## File Structure
 
 Cargo.toml cheatsheet
@@ -220,9 +218,17 @@ version = "..."
 features = ["..."]  // features are conditional compilation flags
 ```
 
-### ? Shorthand
+## Shorthands
+
+### Ellipsis
+
+- `..`: inclusive range operator,  e.g. `start..=end`
+- `..`: struct update syntax, i.e. remaining fields not explicitly set should have the same value as the fields in the given instance. `..Default::default()` or `..user1`
+
+## ? Shorthand
 
 *? applies to a `Result` value, and if it was an `Ok`, it **unwraps** and gives the inner value (Directly uses the into() method), or it returns the Err type from the current* function.* 
+
 ```rust
 // Unwraps a result, or propagates an error (returns the `into` of an Error)
 // ? needs the From trait implementation for the error type you are converting
@@ -272,14 +278,6 @@ pub struct Transaction { ... }
 
 - When using it to write a library: create a new Error type
 - When using it to write an application: have all functions that can fail return failure::Error
-
-## Iterators
-
-Important iterating traits: 
-
-- `Iterator`: Requires Item type, `.next()`
-- `IntoIterator`: Key trait that allows for loop to work, for things that doesn't naturally iterate over themselves
-- `a_vec.into_iter()`: turns a vector into an iterator
 
 ## Generics & Traits
 
