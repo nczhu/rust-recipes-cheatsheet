@@ -2,7 +2,7 @@
 - [Vector](#Vector)
 - [Iterator](#Iterator)
 - [String](#String)
-- [Tree](#Tree)
+- [Tree](#BTreeMap)
 - [HashMap](#Hashmap)
 - [Result & Option](#Result-&-Option)
 - [Match](#Match)
@@ -16,7 +16,7 @@
 - [References](#References)
 - [Threads](#Threads)
 - [Channels](#Channels)
-- [Patterns](#Patterns)
+- [Builder Pattern](#Builder-Pattern)
 - [Macros](#Macros)
 - [Futures](#Futures)
 - [Databases](#Databases)
@@ -622,9 +622,8 @@ let thread_c = thread::spawn(move || fn_3(c_rx)); // the slower write thread
 // Sender/Receiver params work the same as MPSC
 ```
 
-## Patterns
+## Builder Pattern
 
-### Builder
 ```rust
 pub enum Property {
     Simple(&'static str, String), // e.g. x=5, y = 11
