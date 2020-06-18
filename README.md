@@ -225,7 +225,7 @@ features = ["..."]  // features are conditional compilation flags
 - `..`: inclusive range operator,  e.g. `start..=end`
 - `..`: struct update syntax, i.e. remaining fields not explicitly set should have the same value as the fields in the given instance. `..Default::default()` or `..user1`
 
-## ? Shorthand
+### ? Macro
 
 *? applies to a `Result` value, and if it was an `Ok`, it **unwraps** and gives the inner value (Directly uses the into() method), or it returns the Err type from the current* function.* 
 
@@ -235,7 +235,7 @@ features = ["..."]  // features are conditional compilation flags
 Ok(serde_json::from_str(&std::fs::read_to_string(fname)?)?)
 ```
 
-### Use custom errors for new structs
+### Custom errors for custom structs
 
 *To handle proper error handling*
 ```rust
