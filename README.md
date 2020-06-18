@@ -20,6 +20,138 @@
 - [Web Services](#Web-Servers)
 - [CLI](#CLI)
 
+### **Vector [Struct]**
+
+```rust
+vec![0,1,2] or Vec::new()
+
+v.push()          // in the back
+v.pop() -> Option
+v.len() -> usize
+v.insert(*i*, *elem*)
+v.remove(*i*) -> elem
+
+v.append(vec2)
+v.truncate(*l*)
+v.sort()
+v.dedup()         // unique set
+v.retain(|&x| x % 2 == 0); //filter
+v.splice(..2, v2.iter().cloned()) -> &removed times )
+v.contains(&30) -> bool
+```
+
+### **Iterator [Struct]**
+
+```rust
+v.iter()
+
+iter.next()
+iter.count()
+iter.last()
+iter.nth()
+
+iter.map()
+iter.filter()
+iter.find() -> Option
+iter.any() -> bool
+iter.fold() 
+iter.flatten() 
+
+```
+
+### **String [Struct]**
+
+```rust
+//&str == &String since String impl Deref str
+String::from("hi")
+format!("{0} hi", x)
+
+// String -> &str
+s.as_str(), as_mut_str()
+
+s.push(char)
+s.truncate()
+s.pop()...
+```
+
+### **String Slice [primitive]**
+
+```rust
+"asdf" 
+
+// &str -> String
+s.to_string()
+*s*.chars() -> Iterable
+s.len()
+s.is_empty()
+
+```
+
+### **BTreeMap**
+
+```rust
+use std::collections::BTreeMap;
+BTreeMap::new()
+
+m.get(key)
+m.insert(key,val)
+m.remove(key)
+m.contains_key(key)
+m.keys()
+m.values()
+m.len()
+m.is_empty()
+```
+
+### Hashmap
+
+```rust
+use std::collections::HashMap;
+HashMap::new()
+
+m.insert(k,v)
+m.contains_key(k)
+m.remove(k) -> Option
+m.get(k) -> Option
+
+// Iterate over everything.
+for (k, v) in book_reviews {}
+for v in m.values_mut()
+
+// Changing values
+*m.get_mut(&k).unwrap()...
+
+// Insert key if not exist
+let v = m.entry(k).or_insert(v_default); // -> mut V
+*v+= 1;
+
+```
+## Result / Option
+
+```rust
+// Chain fn if Ok, else return Err
+.and_then(fn)
+```
+
+## Match
+
+```rust
+// Match Guards
+
+let message = match maybe_digit {
+    Some(x) if x < 10 => process_digit(x),
+    Some(x) => process_other(x),
+    None => panic!(),
+};
+
+let i : Cell<i32> = Cell::new(0);
+match 1 {
+    1 | _ if { i.set(i.get() + 1); false } => {}
+    _ => {}
+}
+assert_eq!(i.get(), 2);
+```
+
 ## Important Traits
 
 - `from` and `into`: *Two sides of the same coin, returns the same Type the trait is impl on. `Into` is free after impl `From`*
