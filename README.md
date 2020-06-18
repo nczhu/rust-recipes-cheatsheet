@@ -20,7 +20,7 @@
 - [Web Services](#Web-Servers)
 - [CLI](#CLI)
 
-### **Vector [Struct]**
+## Vector
 
 ```rust
 vec![0,1,2] or Vec::new()
@@ -40,7 +40,7 @@ v.splice(..2, v2.iter().cloned()) -> &removed times )
 v.contains(&30) -> bool
 ```
 
-### **Iterator [Struct]**
+## Iterator
 
 ```rust
 v.iter()
@@ -59,10 +59,11 @@ iter.flatten()
 
 ```
 
-### **String [Struct]**
+## String
 
 ```rust
-//&str == &String since String impl Deref str
+// When you need Owned string data (e.g. passing btw threads)                                                             
+// &String == &str, since String impl "Deref str" 
 String::from("hi")
 format!("{0} hi", x)
 
@@ -74,21 +75,23 @@ s.truncate()
 s.pop()...
 ```
 
-### **String Slice [primitive]**
+## String Slice 
 
 ```rust
-"asdf" 
+// When you only need a view of a string 
 
 // &str -> String
 s.to_string()
 *s*.chars() -> Iterable
+s.parse() -> Result
 s.len()
 s.is_empty()
-
 ```
 
-### **BTreeMap**
+- Trait `AsRef<str>` : if `s` is already a string, then it returns ptr to itself, but if it's already a pointer to str, then it doesn't do anything (no op). 
+- Has method `.as_ref()` *Saves you from implementing fns for both strings and slices*
 
+## BTreeMap
 ```rust
 use std::collections::BTreeMap;
 BTreeMap::new()
@@ -103,8 +106,7 @@ m.len()
 m.is_empty()
 ```
 
-### Hashmap
-
+##Hashmap
 ```rust
 use std::collections::HashMap;
 HashMap::new()
@@ -124,7 +126,6 @@ for v in m.values_mut()
 // Insert key if not exist
 let v = m.entry(k).or_insert(v_default); // -> mut V
 *v+= 1;
-
 ```
 ## Result / Option
 
@@ -171,16 +172,10 @@ assert_eq!(i.get(), 2);
 - `Rayon`: Thread, pool handling by allowing **parallel iterators.** `intoParallelIterator`
 - `Tokio`: Provides multithread Future executor for Streams; handles async well, `tokio::run(a_future)`
 
-## Important Shorthands
+## Ellipsis
 
 - `..`: inclusive range operator,  e.g. `start..=end`
 - `..`: struct update syntax, i.e. remaining fields not explicitly set should have the same value as the fields in the given instance. `..Default::default()` or `..user1`
-
-## Stack vs Heap
-
-- `Stack`: Just the vars that exist only during a function
-- `Heap`: Memory that's generally available. Need to free it before ending program. e.g. `String` , `Box`, `Hashmap`, `Arc`, `Rc`
-    - `Box`: A pointer type for heap allocation. Allocates memory on the heap and then places x/anything into it. When it's **dropped**, the memory it points to will be freed.
 
 ## File Structure
 
@@ -207,38 +202,6 @@ dep_name = "version_num"
 [dependencies.dep_name]
 version = "..."
 features = ["..."]  // features are conditional compilation flags
-```
-
-## Strings
-
-### Str Types
-
-- `String`: Dynamic string heap type. *Acts as a pointer. Use when I need owned string data (passing to other threads, building at runtime)*
-- `str`: immutable seq of bytes of dynamic/unknown length in memory. Commonly ref by `&str`, e.g. a ptr to a slice of data that can be anywhere. *Use when I only need a view of a string.*
-- `&'static str`: e.g. "foo" string literal, hardcoded into executable, loaded into mem when program runs.
-
-#### String Conventions
-
-- Trait `AsRef<str>` : if S (generic var) is already a string, then it returns pointer to itself, but if it's already a pointer to str, then it doesn't do anything (no op). Has method `.as_ref()` *Saves me from implementing fns for both strings and slices*
-- `format!("a {}", n)`: returns string, concatenates
-- **Ptr to String → Option<String>**: `ptr.map(|s| s.to_string())`
-- **String slice into a Result<expected type>**: `.parse()`
-
-## Vectors
-Common uses
-```rust
-let mut v = Vec::with_capacity(100);
-v.split_at_mut(index); // splits vec returning mut vecs
-```
-
-## Return Handling
-
-### Result: Ok vs Error
-```rust
-pub enum Result<T,E> {
-    Ok(T),
-    Err(E),
-}
 ```
 
 ### ? Shorthand
@@ -274,27 +237,7 @@ impl From<std::io::Error> for TransactionError {
 pub struct Transaction { ... }
 ```
 
-### Option: Some vs None
-
-```rust
-pub enum Option<T> {
-    Some(T),
-    None,
-}
-```
-
-### Result <> Option
-```rust
-// Result into Option
-let t = get_result.ok()?;
-
-// Option into Result
-// ok_or converts None into Error
-// ? gets it into the Err type we want for our function
-    let t = get_option.ok_or("An Error message if the Option is None")?;
-```
-
-### Refactor error handling
+## Error handling
 
 1. Put all error traits & implementations in `error.rs`; Put all functions in `lib.rs`
 2. Create a lib in cargo.toml, point [main.rs](http://main.rs) to library crate  `extern crate lib_name`
